@@ -5,6 +5,20 @@ const fetch = require('node-fetch');
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 
+// Parse files from delimiter-based LLM response
+function parseFilesFromLLMResponse(response) {
+  // Split on === <file path> ===\n
+  // The regex splits and captures the file path as a group
+  const fileBlocks = response.split(/===\s*(.+?)\s*===/g).slice(1);
+  const files = [];
+  for (let i = 0; i < fileBlocks.length; i += 2) {
+    const path = fileBlocks[i].trim();
+    const content = fileBlocks[i + 1] ? fileBlocks[i + 1].trim() : '';
+    if (path && content) files.push({ path, content });
+  }
+  return files;
+}
+
 async function callLLM(prompt) {
   const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
@@ -17,14 +31,14 @@ async function callLLM(prompt) {
       messages: [
         {
           role: 'system',
-          content: `You are an expert Flutter developer. Given a user prompt, generate a complete Flutter app. Respond ONLY in valid JSON (no markdown, no code fences, no extra text) with a 'files' array, each with 'path' and 'content'. All file contents must be properly JSON-escaped. Example: { "files": [ { "path": "lib/main.dart", "content": "// ..." }, ... ] }.`
+          content: `You are an expert Flutter developer. Given a user prompt, generate a complete Flutter app. Respond ONLY with the following format (no JSON, no markdown, no extra text):\n\n=== lib/main.dart ===\n<contents of main.dart>\n=== lib/screens/home.dart ===\n<contents of home.dart>\n=== pubspec.yaml ===\n<contents of pubspec.yaml>\n...`
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      max_tokens: 2048,
+      max_tokens: 4096,
       temperature: 0.2
     })
   });
@@ -58,18 +72,8 @@ exports.generateFlutterProject = async (req, res) => {
     let files;
     try {
       const llmResponse = await callLLM(prompt);
-      let jsonText = llmResponse;
-      // Try to extract JSON if LLM added extra text
-      if (!llmResponse.trim().startsWith('{')) {
-        const match = llmResponse.match(/{[\s\S]*}/);
-        if (match) {
-          jsonText = match[0];
-        } else {
-          throw new Error('No JSON object found in LLM response');
-        }
-      }
-      files = JSON.parse(jsonText).files;
-      if (!Array.isArray(files)) throw new Error('No files array in LLM response');
+      files = parseFilesFromLLMResponse(llmResponse);
+      if (!Array.isArray(files) || files.length === 0) throw new Error('No files found in LLM response');
     } catch (e) {
       return res.status(500).json({ error: 'Failed to generate code from Mistral', details: e.message });
     }
