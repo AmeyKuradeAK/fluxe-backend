@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y git unzip curl xz-utils && rm -rf /var/
 # Install Flutter SDK
 RUN git clone https://github.com/flutter/flutter.git /opt/flutter
 ENV PATH="/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:${PATH}"
-RUN flutter doctor
 RUN flutter config --enable-web
 
 # Set working directory
