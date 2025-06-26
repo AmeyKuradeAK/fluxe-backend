@@ -5,6 +5,12 @@ const fetch = require('node-fetch');
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 
+// Remove code fences from file content
+function cleanContent(content) {
+  // Remove lines starting with ``` or ```yaml
+  return content.replace(/```[a-zA-Z]*\n?/g, '').replace(/```/g, '');
+}
+
 // Parse files from delimiter-based LLM response
 function parseFilesFromLLMResponse(response) {
   // Split on === <file path> ===\n
@@ -31,7 +37,7 @@ async function callLLM(prompt) {
       messages: [
         {
           role: 'system',
-          content: `You are an expert Flutter developer. Given a user prompt, generate a complete Flutter app. Respond ONLY with the following format (no JSON, no markdown, no extra text):\n\n=== lib/main.dart ===\n<contents of main.dart>\n=== lib/screens/home.dart ===\n<contents of home.dart>\n=== pubspec.yaml ===\n<contents of pubspec.yaml>\n...`
+          content: `You are an expert Flutter developer and UI/UX designer. Given a user prompt, generate a complete, production-quality Flutter app. Always ensure the UI is professional, visually appealing, and highly responsive, even if the user does not specify styling or layout details. Use best practices for layout, theming, and responsiveness. Respond ONLY with the following format (no JSON, no markdown, no extra text):\n\n=== lib/main.dart ===\n<contents of main.dart>\n=== lib/screens/home.dart ===\n<contents of home.dart>\n=== pubspec.yaml ===\n<contents of pubspec.yaml>\n...`
         },
         {
           role: 'user',
@@ -78,12 +84,12 @@ exports.generateFlutterProject = async (req, res) => {
       return res.status(500).json({ error: 'Failed to generate code from Mistral', details: e.message });
     }
 
-    // Write all files
+    // Write all files, cleaning code fences
     try {
       for (const file of files) {
         const filePath = path.join(projectPath, file.path);
         fs.mkdirSync(path.dirname(filePath), { recursive: true });
-        fs.writeFileSync(filePath, file.content);
+        fs.writeFileSync(filePath, cleanContent(file.content));
       }
     } catch (e) {
       return res.status(500).json({ error: 'Failed to write files', details: e.message });
