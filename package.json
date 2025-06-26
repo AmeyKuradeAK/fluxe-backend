@@ -1,0 +1,18 @@
+{
+  "name": "fluxe-backend",
+  "version": "1.0.0",
+  "description": "Express backend for Flutter UI prompt processing and project generation",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}

@@ -1,0 +1,48 @@
+name: Build, Test, and Generate Flutter Project
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Docker image
+        run: docker build -t fluxe-backend-test .
+
+      - name: Run Docker container
+        run: |
+          docker run -d --name fluxe-backend-test -p 3000:3000 --env-file .env fluxe-backend-test
+          sleep 10
+
+      - name: Install curl
+        run: sudo apt-get update && sudo apt-get install -y curl
+
+      - name: Test API endpoint (generate Flutter project)
+        run: |
+          curl -X POST http://localhost:3000/generate \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: supersecretkey123" \
+            -d '{"prompt":"Hello from GitHub Actions"}'
+
+      - name: Show Docker logs
+        run: docker logs fluxe-backend-test
+
+      - name: Stop and remove container
+        run: |
+          docker stop fluxe-backend-test
+          docker rm fluxe-backend-test
