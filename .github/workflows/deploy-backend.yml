@@ -1,14 +1,16 @@
-name: Build, Test, and Generate Flutter Project
+name: CI/CD - Build, Test, and Deploy Backend
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build-and-test:
+  build-test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -19,24 +21,50 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Lint (if available)
+        run: |
+          if [ -f package.json ] && jq -e '.scripts.lint' package.json > /dev/null; then
+            npm run lint
+          else
+            echo "No lint script found. Skipping lint."
+          fi
+
+      # Add tests here if you have them
+      # - name: Run tests
+      #   run: npm test
 
       - name: Build Docker image
-        run: docker build -t fluxe-backend-test .
+        run: docker build -t ghcr.io/${{ github.repository }}:latest .
 
-      - name: Run Docker container
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Docker image
+        run: docker push ghcr.io/${{ github.repository }}:latest
+
+      - name: Run Docker container for API test
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
         run: |
-          docker run -d --name fluxe-backend-test -p 3000:3000 --env-file .env fluxe-backend-test
-          sleep 10
-
-      - name: Install curl
-        run: sudo apt-get update && sudo apt-get install -y curl
+          docker run -d --name fluxe-backend-test -p 3000:3000 \
+            -e API_KEY=${API_KEY} \
+            -e MISTRAL_API_KEY=${MISTRAL_API_KEY} \
+            ghcr.io/${{ github.repository }}:latest
+          sleep 15
 
       - name: Test API endpoint (generate Flutter project)
         run: |
+          sudo apt-get update && sudo apt-get install -y curl
           curl -X POST http://localhost:3000/generate \
             -H "Content-Type: application/json" \
-            -H "x-api-key: supersecretkey123" \
+            -H "x-api-key: ${{ secrets.API_KEY }}" \
             -d '{"prompt":"Hello from GitHub Actions"}'
 
       - name: Show Docker logs
@@ -46,3 +74,11 @@ jobs:
         run: |
           docker stop fluxe-backend-test
           docker rm fluxe-backend-test
+
+      # Optionally upload APK artifacts if needed
+      - name: Upload APKs (if generated)
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-apks
+          path: flutter_projects/**/build/app/outputs/apk/release/app-release.apk
+          if-no-files-found: ignore
