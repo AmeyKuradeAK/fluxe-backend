@@ -1,6 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const apiKeyAuth = require('./middleware/apiKeyAuth');
+const apiKeyAuth = require('./middleware/apikeyAuth');
 
 dotenv.config();
 
