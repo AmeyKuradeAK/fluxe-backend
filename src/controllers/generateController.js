@@ -25,6 +25,16 @@ function parseFilesFromLLMResponse(response) {
   return files;
 }
 
+// Helper to parse .env.example for required secrets
+function getRequiredSecrets(envExamplePath) {
+  if (!fs.existsSync(envExamplePath)) return [];
+  const lines = fs.readFileSync(envExamplePath, 'utf-8').split('\n');
+  return lines
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#') && line.includes('='))
+    .map(line => line.split('=')[0]);
+}
+
 async function callLLM(prompt) {
   const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
@@ -37,7 +47,7 @@ async function callLLM(prompt) {
       messages: [
         {
           role: 'system',
-          content: `You are an expert Flutter developer and UI/UX designer. Given a user prompt, generate a complete, production-quality Flutter app. Always ensure the UI is professional, visually appealing, and highly responsive, even if the user does not specify styling or layout details. Use best practices for layout, theming, and responsiveness. Respond ONLY with the following format (no JSON, no markdown, no extra text):\n\n=== lib/main.dart ===\n<contents of main.dart>\n=== lib/screens/home.dart ===\n<contents of home.dart>\n=== pubspec.yaml ===\n<contents of pubspec.yaml>\n...`
+          content: `You are an expert Flutter developer and UI/UX designer. Given a user prompt, generate a complete, production-quality Flutter app.\n\n- Always ensure the UI is professional, visually appealing, and highly responsive, even if the user does not specify styling or layout details.\n- Use only real, published Flutter/Dart packages.\n- Don't include any backend like mongodb or any auth and all total hardcoded \n- Ensure all files are present and the app builds without errors.\n- If possible, generate a README.md with setup instructions. \n- Respond ONLY with the following format (no JSON, no markdown, no extra text):\n\n=== lib/main.dart ===\n<contents of main.dart>\n=== lib/screens/home.dart ===\n<contents of home.dart>\n=== pubspec.yaml ===\n<contents of pubspec.yaml>\n=== README.md ===\n<contents of README.md>\n...`
         },
         {
           role: 'user',
@@ -95,6 +105,18 @@ exports.generateFlutterProject = async (req, res) => {
       return res.status(500).json({ error: 'Failed to write files', details: e.message });
     }
 
+    // After writing files, print required secrets in terminal (dev only)
+    if (process.env.NODE_ENV !== 'production') {
+      const envExamplePath = path.join(projectPath, '.env.example');
+      const secrets = getRequiredSecrets(envExamplePath);
+      if (secrets.length) {
+        console.log('Please provide values for the following secrets:');
+        secrets.forEach(secret => {
+          console.log(`- ${secret}=`);
+        });
+      }
+    }
+
     // Run pub get and build
     exec('flutter pub get', { cwd: projectPath }, (err2) => {
       if (err2) return res.status(500).json({ error: 'Failed to run flutter pub get' });
@@ -121,4 +143,12 @@ exports.generateFlutterProject = async (req, res) => {
       });
     });
   });
+};
+
+// API endpoint to get required secrets for a project
+exports.getProjectSecrets = (req, res) => {
+  const { projectName } = req.params;
+  const envExamplePath = path.join(__dirname, '../../flutter_projects', projectName, '.env.example');
+  const secrets = getRequiredSecrets(envExamplePath);
+  res.json({ requiredSecrets: secrets });
 };
