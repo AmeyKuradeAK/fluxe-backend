@@ -36,7 +36,9 @@ jobs:
       #   run: npm test
 
       - name: Build Docker image
-        run: docker build -t ghcr.io/${{ github.repository }}:latest .
+        run: |
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')
+          docker build -t $IMAGE_NAME:latest .
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -46,17 +48,20 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push Docker image
-        run: docker push ghcr.io/${{ github.repository }}:latest
+        run: |
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')
+          docker push $IMAGE_NAME:latest
 
       - name: Run Docker container for API test
         env:
           API_KEY: ${{ secrets.API_KEY }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
         run: |
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')
           docker run -d --name fluxe-backend-test -p 3000:3000 \
             -e API_KEY=${API_KEY} \
             -e MISTRAL_API_KEY=${MISTRAL_API_KEY} \
-            ghcr.io/${{ github.repository }}:latest
+            $IMAGE_NAME:latest
           sleep 15
 
       - name: Test API endpoint (generate Flutter project)
