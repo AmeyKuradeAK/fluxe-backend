@@ -1,3 +1,6 @@
 node_modules
 flutter_projects
 .env
+./.env
+!.env.example
+!.env
