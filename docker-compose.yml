@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  flutter-api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - API_KEY=${API_KEY:-supersecretkey123}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_USERNAME=${GITHUB_USERNAME}
+      - NODE_ENV=production
+    volumes:
+      # Mount temporary directory for better performance
+      - flutter_projects:/usr/src/app/flutter_projects
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+volumes:
+  flutter_projects:
+    driver: local

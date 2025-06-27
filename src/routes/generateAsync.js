@@ -2,10 +2,21 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const router = express.Router();
-const { generateFlutterProject, healthCheck } = require('../controllers/generateController');
+const { 
+  generateFlutterProjectAsync, 
+  getJobStatus, 
+  listJobs, 
+  healthCheck 
+} = require('../controllers/generateControllerAsync');
 
-// Main generation endpoint
-router.post('/', generateFlutterProject);
+// Async generation endpoint
+router.post('/', generateFlutterProjectAsync);
+
+// Job status endpoint
+router.get('/status/:jobId', getJobStatus);
+
+// List all jobs (for debugging)
+router.get('/jobs', listJobs);
 
 // Health check endpoint
 router.get('/health', healthCheck);

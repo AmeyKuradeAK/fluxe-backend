@@ -1,20 +1,30 @@
 # --- Stage 1: Build dependencies and Flutter SDK ---
 FROM node:18-bullseye AS builder
 
-# Install git, unzip, curl, xz-utils for Flutter SDK
-RUN apt-get update && apt-get install -y git unzip curl xz-utils && rm -rf /var/lib/apt/lists/*
+# Install required system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    unzip \
+    curl \
+    xz-utils \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Flutter SDK
 RUN git clone https://github.com/flutter/flutter.git /opt/flutter
 ENV PATH="/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:${PATH}"
+
+# Pre-download Flutter dependencies and configure
+RUN flutter doctor
 RUN flutter config --enable-web
+RUN flutter config --android-sdk /opt/android-sdk
 
 # Set working directory
 WORKDIR /usr/src/app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install --production
+RUN npm ci --only=production
 
 # Copy source code
 COPY ./src ./src
